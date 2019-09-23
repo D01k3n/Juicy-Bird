@@ -5,6 +5,9 @@ TagManager:
   serializedVersion: 2
   tags:
   - DONTTOUCH
+  - Back
+  - Mid
+  - Front
   layers:
   - Default
   - TransparentFX
@@ -15,7 +18,7 @@ TagManager:
   - 
   - 
   - Pipe
-  - 
+  - PostProcessing
   - 
   - 
   - 

@@ -1,8 +1,8 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using UnityEditor.SceneManagement;
-using UnityEditor.Animations;
-using UnityEditor.UI;
+using UnityEngine.SceneManagement;
+using UnityEngine.Animations; 
+using UnityEngine.UI;
 using UnityEngine;
 
 public class PlayerController : MonoBehaviour
@@ -18,11 +18,13 @@ public class PlayerController : MonoBehaviour
 
     Animator playeranimator; 
 
-    public GameObject[] pipe_prefabs; 
+    public GameObject[] pipe_prefabs;
+    public GameObject[] penguin_bodyparts;
+    List<GameObject> bodypartsinscene = new List<GameObject>();
 
     GameManager gm;
     public AudioManager am; 
-    private void Start()
+    private void Start() //Defining some variables/components
     {
         lost = false; 
         rb = GetComponent<Rigidbody>();
@@ -31,7 +33,7 @@ public class PlayerController : MonoBehaviour
         gameovertext = GameObject.Find("GameOver_Text");        
         gameovertext.SetActive(false);
         pressbuttontext = GameObject.Find("PressButton_Text");
-        playeranimator = GetComponentInChildren<Animator>();        
+        playeranimator = GetComponentInChildren<Animator>();       
     }
 
     private void Update()
@@ -46,22 +48,22 @@ public class PlayerController : MonoBehaviour
                 GameObject npipe; 
                 if(rand == 0)
                 {
-                    npipe = Instantiate(pipe_prefabs[0], new Vector3(5.5f, 3.45f, 0), Quaternion.identity); 
+                    npipe = Instantiate(pipe_prefabs[0], new Vector3(7, 3.45f, 0), Quaternion.identity); 
                     Rigidbody rb2 = npipe.GetComponent<Rigidbody>();
                     rb2.velocity -= Vector3.right * 100 * Time.deltaTime;
                     gm.pipes.Add(npipe);
                 }
                 if(rand == 1)
                 {
-                    npipe = Instantiate(pipe_prefabs[1], new Vector3(5.5f, .5f, 0), Quaternion.Euler(0, 0, 180));
+                    npipe = Instantiate(pipe_prefabs[1], new Vector3(7, .5f, 0), Quaternion.Euler(0, 0, 180));
                     Rigidbody rb2 = npipe.GetComponent<Rigidbody>();
                     rb2.velocity -= Vector3.right * 100 * Time.deltaTime;
                     gm.pipes.Add(npipe);
                 }
                 if (rand == 2)
                 {
-                    float r = Random.Range(1.25f, 3.1f);
-                    npipe = Instantiate(pipe_prefabs[2], new Vector3(5.5f, r, 0), Quaternion.identity);
+                    float r = Random.Range(1.25f, 3.1f); //Randomizes hight on obstacle unlike the other normal pipes
+                    npipe = Instantiate(pipe_prefabs[2], new Vector3(7, r, 0), Quaternion.identity);
                     Rigidbody rb2 = npipe.GetComponent<Rigidbody>();
                     rb2.velocity -= Vector3.right * 100 * Time.deltaTime;
                     gm.pipes.Add(npipe);
@@ -83,6 +85,7 @@ public class PlayerController : MonoBehaviour
             gm.score = 0;
             gm.score_text.text = "Score: " + gm.score.ToString();
             playeranimator.SetTrigger("Flap");
+            FindObjectOfType<Santa>().movingtotarget = false;            
         }
         if (Input.GetKeyDown(KeyCode.Space))
         {
@@ -91,29 +94,66 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    void GameOver() //Reloads scene after dying
+    void GameOver() //Resets character, resumes music, pauses the game, runs ui animations, removes bodyparts from scene, resets score
     {
+        playeranimator.SetBool("lost", false);
         transform.position = new Vector3(transform.position.x, 1, transform.position.z);       
         started = false;
         lost = false;
         am.ResumeMusic();
         gameovertext.SetActive(false);
         pressbuttontext.SetActive(true);
-        uianimator.SetBool("PressButton", true);       
+        uianimator.SetBool("PressButton", true);        
+        gm.score = 0;
+        gm.score_text.text = "Score: " + gm.score.ToString();
+        FindObjectOfType<Santa>().movingtotarget = true;
+        foreach(GameObject part in bodypartsinscene)
+        {
+            Destroy(part);
+        }
+        bodypartsinscene.Clear();
     }
 
-    private void OnCollisionEnter(Collision collision) //Stops the game when touching pipe/roof/floor
+    void submit() //runs submit score function in GameManager
+    {
+        if (gm.score > 0 && lost)
+        {
+            gm.SetScore();
+        }
+        GameOver();
+    }
+
+    private void OnCollisionEnter(Collision collision) //Stops the game when touching pipe/roof/floor, triggers all animations(Death, UI etc.) 
     {
         if (collision.collider.tag == "DONTTOUCH" && !lost)
         {
-            rb.constraints = RigidbodyConstraints.FreezeAll;
             lost = true;
+            rb.constraints = RigidbodyConstraints.FreezeAll;            
             gameovertext.SetActive(true);
             uianimator.SetTrigger("GameOver");
+            playeranimator.SetTrigger("GameOver");
+            playeranimator.SetBool("lost", true);
+            Invoke("Explode", .9f);
             am.PauseMusic();
             am.PlayAudioEffect(0);
             gm.DestroyPipes();
-            Invoke("GameOver", 3);
+            Invoke("submit", 7);
+        }
+    }
+
+    void Explode() //Spawns bodyparts on death(GORE!) 
+    {
+        foreach(GameObject bodypart in penguin_bodyparts)
+        {
+            GameObject part = Instantiate(bodypart, transform.position, Quaternion.identity);
+            Rigidbody rb = part.AddComponent<Rigidbody>();
+            rb.useGravity = false;
+            float rx = Random.Range(-2000, 2000);
+            float ry = Random.Range(-2000, 2000);
+            float rr = Random.Range(-1000, 1000);
+            rb.AddForce(new Vector2(rx, ry) * Time.deltaTime);
+            rb.AddTorque(new Vector3(0, 0, rr));
+            bodypartsinscene.Add(part);
         }
     }
 }
